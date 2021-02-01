@@ -6,6 +6,7 @@ import com.risi.mongostreamer.repository.PlayerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.web.bind.annotation.*;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -14,9 +15,11 @@ import reactor.core.publisher.Mono;
 public class TestController {
 
     private final PlayerRepository playerRepository;
+    private final ReactiveMongoTemplate template;
+    private Disposable subscription;
 
     @GetMapping(path = "players/{topic}", produces = "application/stream+json")
-    public Flux<Player> test(@PathVariable String topic) {
+    public Flux test(@PathVariable String topic) {
         return playerRepository.findAll(topic);
     }
 
@@ -36,5 +39,17 @@ public class TestController {
     @PostMapping("players/{topic}")
     public Mono<Player> savePlayer(@PathVariable String topic, @RequestBody Player player) {
         return playerRepository.save(player, topic);
+    }
+
+    @GetMapping("/start")
+    public void startStream() {
+        var stream = template.tail(null, Player.class, "myTopic_topic");
+        subscription = stream.subscribe(System.out::println);
+    }
+
+    @GetMapping("/stop")
+    public void stopStream() {
+        subscription.dispose();
+        System.out.print(subscription.isDisposed());
     }
 }
